@@ -1,5 +1,6 @@
 const errorHandlerMiddleware = (err, req, res, next) => {
-  res.status(err.status || 500).json({
+  const status = err.statusCode || err.status || 500;
+  res.status(status).json({
     success: false,
     message: err.message || "Internal Server Error",
   });

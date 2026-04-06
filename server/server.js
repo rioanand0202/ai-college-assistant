@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 initSocketServer(server);
 
-// connectMongoDB();
+connectMongoDB();
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

@@ -4,15 +4,25 @@ const morgan = require("morgan");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const errorHandlerMiddleware = require("./src/middlewares/errorHandler.middleware");
+const { requestContextMiddleware } = require("./src/context/requestContext");
+const activityLogMiddleware = require("./src/middlewares/activityLog.middleware");
 
 const app = express();
+app.set("trust proxy", 1);
 
 app.use(helmet());
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-user-id",
+      "user_id",
+      "x-college-code",
+      "college_code",
+    ],
     exposedHeaders: ["Authorization"],
     credentials: true,
     maxAge: 86400,
@@ -23,6 +33,8 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(requestContextMiddleware);
+app.use(activityLogMiddleware);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({ message: "Server is running" });
