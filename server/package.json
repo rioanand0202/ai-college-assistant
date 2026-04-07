@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "start:dev": "nodemon server.js",
+    "chroma:up": "docker compose -f docker-compose.chroma.yml up -d",
+    "chroma:down": "docker compose -f docker-compose.chroma.yml down",
+    "chroma:logs": "docker compose -f docker-compose.chroma.yml logs -f chroma",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -23,6 +26,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.0",
     "express": "^5.2.1",
+    "express-session": "^1.19.0",
     "helmet": "^8.1.0",
     "ioredis": "^5.10.1",
     "joi": "^18.1.2",
@@ -33,6 +37,8 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
     "pdf-parse": "^1.1.1",
     "socket.io": "^4.8.3"
   },

@@ -5,8 +5,9 @@ const { OpenAIEmbeddings } = require("@langchain/openai");
 const { Chroma } = require("@langchain/community/vectorstores/chroma");
 const { RecursiveCharacterTextSplitter } = require("@langchain/textsplitters");
 
-const { ChromaClient } = require("chromadb");
+const { ChromaClient, ChromaConnectionError } = require("chromadb");
 const elasticsearch = require("./elasticsearch.service");
+const { isExamStyleQuestion } = require("./questionMetadata.parser");
 
 const COLLECTION = process.env.CHROMA_COLLECTION || "college-materials";
 
@@ -23,11 +24,63 @@ function getEmbeddings() {
   return embeddingsInstance;
 }
 
-function buildChromaClient() {
-  const host = process.env.CHROMA_HOST || "127.0.0.1";
-  const port = Number(process.env.CHROMA_PORT || 8000);
+/**
+ * Chroma HTTP API connection (chromadb npm v3+ uses host/port/ssl; `path` is deprecated).
+ * Optional: CHROMA_URL=http://127.0.0.1:8000 overrides CHROMA_HOST / CHROMA_PORT / CHROMA_SSL.
+ */
+function getChromaConnectionConfig() {
+  const rawUrl = process.env.CHROMA_URL?.trim();
+  if (rawUrl) {
+    try {
+      const u = new URL(rawUrl);
+      const port = u.port
+        ? Number(u.port)
+        : u.protocol === "https:"
+          ? 443
+          : 80;
+      return {
+        host: u.hostname,
+        port,
+        ssl: u.protocol === "https:",
+      };
+    } catch {
+      /* fall through */
+    }
+  }
+  let host = (process.env.CHROMA_HOST || "127.0.0.1").replace(/^https?:\/\//, "");
+  const colon = host.indexOf(":");
+  let port = Number(process.env.CHROMA_PORT || 8000);
+  if (colon > -1) {
+    const p = host.slice(colon + 1);
+    host = host.slice(0, colon);
+    if (p) port = Number(p) || port;
+  }
   const ssl = String(process.env.CHROMA_SSL || "").toLowerCase() === "true";
+  return { host, port, ssl };
+}
+
+function getChromaServerUrl() {
+  const { host, port, ssl } = getChromaConnectionConfig();
+  return `${ssl ? "https" : "http"}://${host}:${port}`;
+}
+
+function buildChromaClient() {
+  const { host, port, ssl } = getChromaConnectionConfig();
   return new ChromaClient({ host, port, ssl });
+}
+
+/** True when Chroma server is not reachable (not running, wrong host/port, firewall). */
+function isChromaUnreachableError(err) {
+  let e = err;
+  for (let i = 0; i < 6 && e; i += 1) {
+    if (e instanceof ChromaConnectionError) return true;
+    const msg = String(e.message || "");
+    if (/failed to connect to chromadb|chroma connection error|econnrefused/i.test(msg)) {
+      return true;
+    }
+    e = e.cause;
+  }
+  return false;
 }
 
 async function getChromaStore() {
@@ -41,17 +94,48 @@ async function getChromaStore() {
       args.chromaCloudAPIKey = process.env.CHROMA_CLOUD_API_KEY;
     }
     chromaStore = new Chroma(embeddings, args);
-    await chromaStore.ensureCollection();
+    try {
+      await chromaStore.ensureCollection();
+    } catch (err) {
+      const target = getChromaServerUrl();
+      const msg = err?.message || String(err);
+      const hint =
+        `Cannot connect to Chroma at ${target}. ` +
+        `Start the database (Docker): from folder "server" run  npm run chroma:up  ` +
+        `then verify: curl ${target}/api/v2/version`;
+      const wrapped = new Error(`${msg} — ${hint}`);
+      wrapped.cause = err;
+      chromaStore = null;
+      throw wrapped;
+    }
   }
   return chromaStore;
 }
 
-function buildChromaWhere({ subject, department, semester, degree, collegeCode }) {
+function buildChromaWhere({
+  subject,
+  subjectVariants,
+  department,
+  semester,
+  degree,
+  year,
+  collegeCode,
+}) {
   const parts = [];
-  if (subject) parts.push({ subject: { $eq: String(subject).trim() } });
-  if (department) parts.push({ department: { $eq: String(department).trim() } });
-  if (semester) parts.push({ semester: { $eq: String(semester).trim() } });
-  if (degree) parts.push({ degree: { $eq: String(degree).trim() } });
+  const variants = (subjectVariants || [])
+    .map((s) => String(s || "").trim().toLowerCase())
+    .filter(Boolean);
+  if (variants.length > 1) {
+    parts.push({ $or: variants.map((s) => ({ subject: { $eq: s } })) });
+  } else if (variants.length === 1) {
+    parts.push({ subject: { $eq: variants[0] } });
+  } else if (subject) {
+    parts.push({ subject: { $eq: String(subject).trim().toLowerCase() } });
+  }
+  if (department) parts.push({ department: { $eq: String(department).trim().toLowerCase() } });
+  if (semester) parts.push({ semester: { $eq: String(semester).trim().toLowerCase() } });
+  if (degree) parts.push({ degree: { $eq: String(degree).trim().toLowerCase() } });
+  if (year) parts.push({ year: { $eq: String(year).trim().toLowerCase() } });
   if (collegeCode) parts.push({ collegeCode: { $eq: String(collegeCode).trim().toUpperCase() } });
   if (parts.length === 0) return undefined;
   if (parts.length === 1) return parts[0];
@@ -71,21 +155,13 @@ function sanitizeChromaMetadata(meta) {
   return out;
 }
 
-const EXAM_KEYWORDS = /important questions|exam questions|expected questions/i;
-
-function isExamStyleQuestion(q) {
-  return EXAM_KEYWORDS.test(String(q || ""));
-}
-
 function buildSystemPrompt(examMode) {
   if (examMode) {
-    return `You are an expert university examiner. Using ONLY the context passages below, generate exactly 10 exam-oriented practice questions.
-Format your response as a clear numbered list (1–10).
-Include a mix of:
-- Short-answer / 2-mark style questions (about 4 items)
-- Long-answer / 10-mark style questions (about 6 items)
-Label each question with "[2 marks]" or "[10 marks]" as appropriate.
-If the context is insufficient for 10 questions, say so briefly and ask fewer, still labeled. Do not invent facts outside the context.`;
+    return `You are an expert university examiner. Using ONLY the context passages below, produce exactly 10 exam-oriented questions as a numbered list (1–10).
+Strict counts:
+- Exactly 4 questions labeled "[2 marks]" (short answer).
+- Exactly 6 questions labeled "[10 marks]" (long answer / essay style).
+If the context cannot support 10 grounded questions, state that briefly, then provide as many as you can while keeping the 2-mark vs 10-mark labels honest. Do not invent facts outside the context.`;
   }
   return `You are a helpful AI tutor for college students. Answer using the provided context from course materials when relevant. If the context does not contain enough information, say so and answer from general principles only when safe. Be clear and structured.`;
 }
@@ -113,6 +189,7 @@ async function ingestMaterialPdf({
   department,
   semester,
   degree,
+  year,
   type,
   collegeCode,
   absoluteFilePath,
@@ -129,16 +206,20 @@ async function ingestMaterialPdf({
   const splits = await splitter.splitText(rawText);
 
   const store = await getChromaStore();
-  const baseMeta = sanitizeChromaMetadata({
+  const baseMetaRaw = {
     materialId: String(materialId),
     title: String(title || ""),
-    subject: String(subject).trim(),
-    department: String(department).trim(),
-    semester: String(semester).trim(),
-    degree: String(degree).trim(),
+    subject: String(subject).trim().toLowerCase(),
+    department: String(department).trim().toLowerCase(),
+    semester: String(semester).trim().toLowerCase(),
+    degree: String(degree).trim().toLowerCase(),
     type: String(type || "notes"),
     collegeCode: String(collegeCode).trim().toUpperCase(),
-  });
+  };
+  if (year != null && String(year).trim()) {
+    baseMetaRaw.year = String(year).trim().toLowerCase();
+  }
+  const baseMeta = sanitizeChromaMetadata(baseMetaRaw);
 
   const documents = splits.map((pageContent, i) => {
     const chunkId = `${materialId}_c${i}`;
@@ -164,6 +245,7 @@ async function ingestMaterialPdf({
     department: baseMeta.department,
     semester: baseMeta.semester,
     degree: baseMeta.degree,
+    ...(baseMeta.year ? { year: baseMeta.year } : {}),
     type: baseMeta.type,
     collegeCode: baseMeta.collegeCode,
   }));
@@ -185,9 +267,11 @@ async function ingestMaterialPdf({
 async function queryRag({
   question,
   subject,
+  subjectVariants,
   department,
   semester,
   degree,
+  year,
   collegeCode,
 }) {
   if (!process.env.OPENAI_API_KEY) {
@@ -200,26 +284,38 @@ async function queryRag({
   }
 
   const store = await getChromaStore();
+  const variants =
+    subjectVariants?.length > 0
+      ? subjectVariants
+      : subject
+        ? [String(subject).trim().toLowerCase()]
+        : [];
+
   const where = buildChromaWhere({
     subject,
+    subjectVariants: variants,
     department,
     semester,
     degree,
+    year,
     collegeCode,
   });
 
-  let docs = await store.similaritySearch(q, 5, where);
+  const topK = isExamStyleQuestion(q) ? 8 : 5;
+  let docs = await store.similaritySearch(q, topK, where);
 
   if (docs.length === 0 && elasticsearch.isEnabled()) {
     try {
       const { hits } = await elasticsearch.searchChunks({
         query: q,
         subject,
+        subjectIn: variants,
         department,
         semester,
         degree,
+        year,
         collegeCode,
-        size: 5,
+        size: topK,
       });
       docs = hits.map((h) => ({
         pageContent: h.text || "",
@@ -256,7 +352,7 @@ async function queryRag({
         { role: "system", content: system },
         { role: "user", content: userContent },
       ],
-      temperature: examMode ? 0.35 : 0.4,
+      // temperature: examMode ? 0.35 : 0.4,
     }),
   });
 
@@ -280,10 +376,72 @@ async function queryRag({
   };
 }
 
+/**
+ * OpenAI-only answer when Chroma is down (public assistant fallback).
+ */
+async function queryOpenAiWithoutCorpus({ question }) {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is required");
+  }
+  const q = String(question || "").trim();
+  if (!q) {
+    throw new Error("question is required");
+  }
+  const examMode = isExamStyleQuestion(q);
+  const system = examMode
+    ? `You are an expert university examiner. The college's PDF / vector index is offline — use solid undergraduate curriculum knowledge for the topic in the user's message. Produce exactly 10 exam-style questions as a numbered list (1–10): exactly 4 labeled "[2 marks]" and exactly 6 labeled "[10 marks]". Note briefly that these are not sourced from this institution's uploaded materials.`
+    : `You are a helpful AI tutor. The course materials database is not connected. Answer clearly from general principles, and add one short sentence that your answer is not sourced from this college's uploaded PDFs.`;
+
+  const userContent = examMode ? `Task: ${q}` : `Question: ${q}`;
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userContent },
+      ],
+      // temperature: examMode ? 0.35 : 0.4,
+    }),
+  });
+
+  const json = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const errMsg = json?.error?.message || r.statusText || "OpenAI request failed";
+    throw new Error(errMsg);
+  }
+
+  const answer = json?.choices?.[0]?.message?.content?.trim() || "";
+
+  return {
+    answer,
+    sourcesUsed: 0,
+    examMode,
+    chunksPreview: [],
+    ragSkipped: true,
+    ragSkipReason: "chroma_unreachable",
+  };
+}
+
+async function chromaHeartbeat() {
+  const client = buildChromaClient();
+  await client.heartbeat();
+  return true;
+}
+
 module.exports = {
   getChromaStore,
   ingestMaterialPdf,
   queryRag,
+  queryOpenAiWithoutCorpus,
+  isChromaUnreachableError,
+  chromaHeartbeat,
+  getChromaServerUrl,
   extractPdfText,
   buildChromaWhere,
 };

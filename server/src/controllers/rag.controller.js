@@ -3,33 +3,50 @@ const { catchAsync } = require("../utils/catchAsync");
 const { asyncHookFun, commitActivityLog } = require("../context/requestContext");
 const ragService = require("../services/rag.service");
 const elasticsearch = require("../services/elasticsearch.service");
+const { extractFiltersFromQuestion } = require("../services/questionMetadata.parser");
+
+function mergeRagFilters(question, body) {
+  const parsed = extractFiltersFromQuestion(question);
+  const b = body || {};
+
+  let subjectVariants = parsed.subjectVariants || [];
+  if (b.subject && String(b.subject).trim()) {
+    subjectVariants = [String(b.subject).trim().toLowerCase()];
+  }
+
+  return {
+    subjectVariants,
+    semester: b.semester || parsed.semester,
+    year: b.year || parsed.year,
+    department: b.department || parsed.department,
+    degree: b.degree || parsed.degree,
+  };
+}
 
 /**
  * POST /api/rag/query
- * Body: question, subject, department, semester, degree (optional)
+ * Body: question (required); subject, department, semester, degree, year optional — parsed from question when omitted.
  */
 const queryRag = catchAsync(async (pick, res) => {
   const { req, body } = pick;
   asyncHookFun(req);
 
-  const { question, subject, department, semester, degree } = body || {};
-
+  const { question } = body || {};
   if (!question || !String(question).trim()) {
     throw new AppError("question is required", 400);
   }
-  if (!subject || !department || !semester) {
-    throw new AppError("subject, department, and semester are required", 400);
-  }
 
+  const merged = mergeRagFilters(question, body);
   const collegeCode = String(req.user.collegeCode || "").toUpperCase();
 
   try {
     const result = await ragService.queryRag({
       question,
-      subject,
-      department,
-      semester,
-      degree,
+      subjectVariants: merged.subjectVariants,
+      department: merged.department,
+      semester: merged.semester,
+      degree: merged.degree,
+      year: merged.year,
       collegeCode,
     });
 
@@ -42,7 +59,10 @@ const queryRag = catchAsync(async (pick, res) => {
 
     res.status(200).json({
       success: true,
-      data: result,
+      data: {
+        ...result,
+        filtersApplied: merged,
+      },
     });
   } catch (err) {
     const msg = err?.message || "RAG query failed";
@@ -65,17 +85,23 @@ const searchChunks = catchAsync(async (pick, res) => {
     });
   }
 
-  const { q, query, subject, department, semester, degree, size } = body || {};
+  const { q, query, subject, department, semester, degree, year, size } = body || {};
   const text = (q ?? query ?? "").toString().trim();
   const collegeCode = String(req.user.collegeCode || "").toUpperCase();
+  const parsed = extractFiltersFromQuestion(text);
+  const subjectIn =
+    subject && String(subject).trim()
+      ? [String(subject).trim().toLowerCase()]
+      : parsed.subjectVariants;
 
   try {
     const { hits } = await elasticsearch.searchChunks({
       query: text,
-      subject,
-      department,
-      semester,
-      degree,
+      subjectIn,
+      department: department || parsed.department,
+      semester: semester || parsed.semester,
+      degree: degree || parsed.degree,
+      year: year || parsed.year,
       collegeCode,
       size: Math.min(Number(size) || 10, 50),
     });

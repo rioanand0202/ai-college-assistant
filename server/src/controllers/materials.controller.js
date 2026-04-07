@@ -84,6 +84,7 @@ const uploadMaterial = catchAsync(async (pick, res) => {
         department: doc.department,
         semester: doc.semester,
         degree: doc.degree,
+        year: doc.year,
         type: doc.type,
         collegeCode: doc.collegeCode,
         absoluteFilePath: absPath,

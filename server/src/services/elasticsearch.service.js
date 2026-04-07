@@ -32,6 +32,7 @@ async function ensureIndex() {
           department: { type: "keyword" },
           semester: { type: "keyword" },
           degree: { type: "keyword" },
+          year: { type: "keyword" },
           type: { type: "keyword" },
           collegeCode: { type: "keyword" },
         },
@@ -78,7 +79,17 @@ async function indexChunks(docs) {
 /**
  * Full-text search over chunk text with optional metadata filters.
  */
-async function searchChunks({ query, subject, department, semester, degree, collegeCode, size = 10 }) {
+async function searchChunks({
+  query,
+  subject,
+  subjectIn,
+  department,
+  semester,
+  degree,
+  year,
+  collegeCode,
+  size = 10,
+}) {
   const es = getClient();
   if (!es) {
     return { hits: [], disabled: true };
@@ -99,10 +110,26 @@ async function searchChunks({ query, subject, department, semester, degree, coll
   }
 
   const filter = [];
-  if (subject) filter.push({ term: { subject: String(subject).trim() } });
-  if (department) filter.push({ term: { department: String(department).trim() } });
-  if (semester) filter.push({ term: { semester: String(semester).trim() } });
-  if (degree) filter.push({ term: { degree: String(degree).trim() } });
+  const subjList =
+    Array.isArray(subjectIn) && subjectIn.length
+      ? subjectIn.map((s) => String(s).trim().toLowerCase()).filter(Boolean)
+      : subject
+        ? [String(subject).trim().toLowerCase()]
+        : [];
+  if (subjList.length > 1) {
+    filter.push({
+      bool: {
+        should: subjList.map((s) => ({ term: { subject: s } })),
+        minimum_should_match: 1,
+      },
+    });
+  } else if (subjList.length === 1) {
+    filter.push({ term: { subject: subjList[0] } });
+  }
+  if (department) filter.push({ term: { department: String(department).trim().toLowerCase() } });
+  if (semester) filter.push({ term: { semester: String(semester).trim().toLowerCase() } });
+  if (degree) filter.push({ term: { degree: String(degree).trim().toLowerCase() } });
+  if (year) filter.push({ term: { year: String(year).trim().toLowerCase() } });
   if (collegeCode) filter.push({ term: { collegeCode: String(collegeCode).trim().toUpperCase() } });
 
   try {
@@ -118,6 +145,7 @@ async function searchChunks({ query, subject, department, semester, degree, coll
         "department",
         "semester",
         "degree",
+        "year",
         "type",
       ],
       query: {

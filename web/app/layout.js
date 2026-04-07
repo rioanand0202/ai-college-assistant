@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "AI College Assistant — Staff",
-  description: "Staff workspace for materials and AI help",
+  title: "AI College Assistant",
+  description: "Public course assistant, staff workspace, and materials",
 };
 
 export default function RootLayout({ children }) {

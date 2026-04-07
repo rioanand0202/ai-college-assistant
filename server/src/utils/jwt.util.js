@@ -16,9 +16,24 @@ const verifyAccessToken = (token) => jwt.verify(token, accessSecret());
 
 const verifyRefreshToken = (token) => jwt.verify(token, refreshSecret());
 
+const oauthAccessExpires = () => process.env.JWT_OAUTH_EXPIRES_IN || "7d";
+
+/** Short-lived access token for Google OAuth (public app); not interchangeable with college Users JWT. */
+const signOAuthAccessToken = (payload) =>
+  jwt.sign(
+    {
+      ...payload,
+      typ: "access",
+      authKind: "oauth",
+    },
+    accessSecret(),
+    { expiresIn: oauthAccessExpires() },
+  );
+
 module.exports = {
   signAccessToken,
   signRefreshToken,
+  signOAuthAccessToken,
   verifyAccessToken,
   verifyRefreshToken,
 };
