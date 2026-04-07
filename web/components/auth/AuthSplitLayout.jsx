@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { Box, Typography, useTheme } from "@mui/material";
 
+/** Split layout for register / waiting: solid panel (no hero image). */
 export default function AuthSplitLayout({ eyebrow, title, subtitle, children }) {
   const theme = useTheme();
   const isLight = theme.palette.mode === "light";
@@ -10,28 +10,14 @@ export default function AuthSplitLayout({ eyebrow, title, subtitle, children }) 
   return (
     <Box className="min-h-screen flex flex-col lg:flex-row">
       <Box
-        className="relative lg:w-[46%] xl:w-[48%] min-h-[220px] lg:min-h-screen overflow-hidden"
+        className="relative lg:w-[46%] xl:w-[48%] min-h-[200px] lg:min-h-screen"
         sx={{
           bgcolor: isLight ? "secondary.main" : "background.paper",
+          borderBottom: { xs: 1, lg: 0 },
+          borderColor: "divider",
         }}
       >
-        <Image
-          src="/hero-art.png"
-          alt=""
-          fill
-          priority
-          className="object-cover opacity-95"
-          sizes="(max-width: 1024px) 100vw, 48vw"
-        />
-        <Box
-          className="absolute inset-0"
-          sx={{
-            background: isLight
-              ? "linear-gradient(135deg, rgba(242,232,223,0.15) 0%, rgba(200,76,49,0.18) 100%)"
-              : "linear-gradient(135deg, rgba(18,18,18,0.2) 0%, rgba(200,76,49,0.25) 100%)",
-          }}
-        />
-        <Box className="relative z-[1] p-8 lg:p-12 flex flex-col justify-end min-h-[220px] lg:min-h-screen">
+        <Box className="p-8 lg:p-12 flex flex-col justify-center min-h-[200px] lg:min-h-screen">
           <Typography
             variant="overline"
             sx={{ letterSpacing: "0.25em", fontWeight: 800, color: "primary.main" }}
@@ -46,7 +32,7 @@ export default function AuthSplitLayout({ eyebrow, title, subtitle, children }) 
               fontWeight: 800,
               lineHeight: 1.05,
               color: "text.primary",
-              fontSize: { xs: "1.75rem", sm: "2.25rem", md: "2.75rem" },
+              fontSize: { xs: "1.65rem", sm: "2.1rem", md: "2.65rem" },
             }}
           >
             {title}

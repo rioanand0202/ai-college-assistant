@@ -6,17 +6,21 @@ import {
   Box,
   Button,
   IconButton,
-  Paper,
+  InputAdornment,
+  Link,
   TextField,
   Typography,
 } from "@mui/material";
-import Link from "next/link";
+import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
-import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
-import AuthSplitLayout from "@/components/auth/AuthSplitLayout";
-import { useThemeMode } from "@/components/providers/ThemeModeContext";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import LoginBrandedLayout from "@/components/auth/LoginBrandedLayout";
 import { clearError, loginUser } from "@/features/authSlice";
 import { postLoginPath } from "@/lib/roles";
 
@@ -24,10 +28,10 @@ export default function LoginPage() {
   const dispatch = useDispatch();
   const router = useRouter();
   const { status, error } = useSelector((s) => s.auth);
-  const { mode, toggleMode } = useThemeMode();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [collegeCode, setCollegeCode] = useState(
     () => (process.env.NEXT_PUBLIC_COLLEGE_CODE || "").trim(),
   );
@@ -41,9 +45,7 @@ export default function LoginPage() {
     const res = await dispatch(loginUser({ email, password, collegeCode }));
     if (loginUser.fulfilled.match(res)) {
       const u = res.payload?.user;
-      const path = postLoginPath(u);
-      /** Full navigation avoids rare cases where App Router client transition does not run after auth. */
-      window.location.assign(path);
+      window.location.assign(postLoginPath(u));
       return;
     }
     if (loginUser.rejected.match(res)) {
@@ -55,88 +57,134 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthSplitLayout
-      eyebrow="Staff & admin"
-      title="Sign in to continue"
-      subtitle="Use your college code, email, and password. Pending staff cannot sign in until an admin approves."
-    >
-      <Paper
-        elevation={0}
+    <LoginBrandedLayout>
+      <Typography
+        variant="overline"
         sx={{
-          p: { xs: 2, sm: 3 },
-          borderRadius: 3,
-          border: 1,
-          borderColor: "divider",
-          bgcolor: "background.paper",
-          position: "relative",
+          letterSpacing: "0.2em",
+          fontWeight: 800,
+          color: "primary.main",
+          display: "block",
         }}
       >
-        <IconButton
-          onClick={toggleMode}
-          aria-label="toggle theme"
-          size="small"
-          sx={{ position: "absolute", top: 12, right: 12 }}
-        >
-          {mode === "dark" ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
-        </IconButton>
-        <Typography variant="h5" fontWeight={900} gutterBottom>
-          Login
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          College code is checked with your email on the server (not via extra headers after login).
-        </Typography>
+        STAFF & ADMIN
+      </Typography>
+      <Typography variant="h4" fontWeight={900} sx={{ mt: 0.5, mb: 0.5 }}>
+        Sign in
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+        Hi There 👋, Welcome back to your workspace.
+      </Typography>
 
-        {error ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        ) : null}
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => dispatch(clearError())}>
+          {error}
+        </Alert>
+      ) : null}
 
-        <Box component="form" onSubmit={onSubmit} className="flex flex-col gap-2">
-          <TextField
-            label="College code"
-            value={collegeCode}
-            onChange={(e) => setCollegeCode(e.target.value)}
-            required
-            fullWidth
-            autoComplete="organization"
-          />
-          <TextField
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            fullWidth
-            autoComplete="email"
-          />
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            fullWidth
-            autoComplete="current-password"
-          />
-          <Button
-            type="submit"
-            variant="contained"
-            size="large"
-            disabled={status === "loading"}
-            sx={{ mt: 1 }}
+      <Box component="form" onSubmit={onSubmit} className="flex flex-col" sx={{ gap: 2 }}>
+        <TextField
+          label="College code"
+          value={collegeCode}
+          onChange={(e) => setCollegeCode(e.target.value)}
+          required
+          fullWidth
+          autoComplete="organization"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <AccountBalanceIcon sx={{ color: "text.secondary", fontSize: 22 }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <TextField
+          label="Email address"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          fullWidth
+          autoComplete="email"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <EmailOutlinedIcon sx={{ color: "text.secondary", fontSize: 22 }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <TextField
+          label="Password"
+          type={showPassword ? "text" : "password"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          fullWidth
+          autoComplete="current-password"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <LockOutlinedIcon sx={{ color: "text.secondary", fontSize: 22 }} />
+              </InputAdornment>
+            ),
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label="toggle password visibility"
+                  onClick={() => setShowPassword((v) => !v)}
+                  edge="end"
+                  size="small"
+                >
+                  {showPassword ? <VisibilityOffOutlinedIcon /> : <VisibilityOutlinedIcon />}
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
+
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: -0.5 }}>
+          <Typography
+            component="button"
+            type="button"
+            variant="body2"
+            onClick={(e) => e.preventDefault()}
+            sx={{
+              border: "none",
+              background: "none",
+              p: 0,
+              cursor: "not-allowed",
+              fontWeight: 600,
+              color: "primary.main",
+              font: "inherit",
+            }}
           >
-            {status === "loading" ? "Signing in…" : "Sign in"}
-          </Button>
+            Forgot password?
+          </Typography>
         </Box>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          New staff?{" "}
-          <Link href="/register/staff" className="text-[#C84C31] font-semibold">
-            Create your profile
-          </Link>
-        </Typography>
-      </Paper>
-    </AuthSplitLayout>
+        <Button
+          type="submit"
+          variant="contained"
+          size="large"
+          disabled={status === "loading"}
+          endIcon={<ArrowForwardIcon />}
+          sx={{ mt: 0.5, py: 1.25, fontWeight: 700 }}
+        >
+          {status === "loading" ? "Signing in…" : "Sign in"}
+        </Button>
+      </Box>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 2.5 }}>
+        New staff?{" "}
+        <Link component={NextLink} href="/register/staff" fontWeight={700} color="primary">
+          Create your profile
+        </Link>
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: "block", lineHeight: 1.5 }}>
+        Pending staff cannot sign in until an admin approves. Contact your institution administrator
+        for access.
+      </Typography>
+    </LoginBrandedLayout>
   );
 }

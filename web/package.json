@@ -16,6 +16,7 @@
     "@mui/material-nextjs": "^7.3.9",
     "@reduxjs/toolkit": "^2.11.2",
     "axios": "^1.14.0",
+    "framer-motion": "^11.18.2",
     "next": "16.2.2",
     "react": "19.2.4",
     "react-dom": "19.2.4",
