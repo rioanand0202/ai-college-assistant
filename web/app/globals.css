@@ -15,3 +15,63 @@ html.dark {
 body {
   font-family: var(--font-inter), system-ui, sans-serif;
 }
+
+@keyframes public-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes public-book-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes public-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes public-sparkle {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.15);
+  }
+}
+
+.public-chat-msg-in {
+  animation: public-msg-in 0.38s ease-out both;
+}
+
+.public-book-float {
+  animation: public-book-float 5s ease-in-out infinite;
+}
+
+.public-tooltip-pop {
+  animation: public-tooltip-in 0.22s ease-out both;
+}
+
+.public-sparkle-dot {
+  animation: public-sparkle 4s ease-in-out infinite;
+}
