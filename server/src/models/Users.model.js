@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
-const { ROLE, DEGREE, YEARANDSEMESTER } = require("../utils/constants");
+const { ROLE, DEGREE, YEARANDSEMESTER, USER_STATUS } = require("../utils/constants");
 
 const { STUDENT, ADMIN, STAFF, SUPER_ADMIN, INCHARGE, HOD } = ROLE;
+const { PENDING, APPROVED, REJECTED } = USER_STATUS;
 const { BSC, MSC, BA, MA, SCHOLAR, BCOM, BBA, BCA, MCA } = DEGREE;
 const { YEAR1, YEAR2, YEAR3, SEM1, SEM2 } = YEARANDSEMESTER;
 
@@ -42,6 +43,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: [STUDENT, ADMIN, STAFF, SUPER_ADMIN, INCHARGE, HOD],
     default: STUDENT,
+  },
+  /** Staff: pending until admin approves. Other roles should stay approved. */
+  status: {
+    type: String,
+    enum: [PENDING, APPROVED, REJECTED],
+    default: APPROVED,
   },
   degree: {
     type: String,

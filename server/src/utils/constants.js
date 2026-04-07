@@ -16,6 +16,7 @@ const DEGREE = {
   BCOM: "bcom",
   BBA: "bba",
   BCA: "bca",
+  MCA: "mca",
 };
 
 const DEPARTMENT = {
@@ -39,4 +40,11 @@ const YEARANDSEMESTER = {
   SEM2: "sem 2",
 };
 
-module.exports = { ROLE, DEGREE, DEPARTMENT, YEARANDSEMESTER };
+/** Staff approval lifecycle (also used where legacy data has no status). */
+const USER_STATUS = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+};
+
+module.exports = { ROLE, DEGREE, DEPARTMENT, YEARANDSEMESTER, USER_STATUS };
