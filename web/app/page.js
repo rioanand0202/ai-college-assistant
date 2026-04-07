@@ -12,8 +12,11 @@ import Image from "next/image";
 import Link from "next/link";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
+import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import { useEffect, useState } from "react";
 import { useTheme } from "@mui/material/styles";
+import { useThemeMode } from "@/components/providers/ThemeModeContext";
 import PublicChat from "@/components/public/PublicChat";
 import { getPublicToken, getPublicUser } from "@/lib/publicAuth";
 
@@ -160,6 +163,7 @@ function PublicDecorBackground({ isLight }) {
 export default function PublicHomePage() {
   const theme = useTheme();
   const isLight = theme.palette.mode === "light";
+  const { mode, toggleMode } = useThemeMode();
   const [hasPublicAuth, setHasPublicAuth] = useState(false);
   const [name, setName] = useState(null);
 
@@ -203,14 +207,17 @@ export default function PublicHomePage() {
             top: 0,
             zIndex: 20,
             borderBottom: 1,
-            borderColor: isLight
-              ? "rgba(255,255,255,0.65)"
-              : "rgba(255,255,255,0.06)",
-            background: isLight
-              ? "rgba(255,255,255,0.5)"
-              : "rgba(18,18,18,0.6)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
+            borderColor: "divider",
+            bgcolor:
+              theme.palette.mode === "light"
+                ? "rgba(242, 232, 223, 0.92)"
+                : "rgba(18, 18, 18, 0.92)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            color: "text.primary",
+            boxShadow: isLight
+              ? "0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 24px rgba(26, 26, 26, 0.04)"
+              : "0 1px 0 rgba(255,255,255,0.04) inset",
           }}
         >
           <Toolbar
@@ -343,14 +350,37 @@ export default function PublicHomePage() {
               </>
             )}
             <IconButton
-              size="small"
+              color="inherit"
+              onClick={toggleMode}
+              aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               sx={{
-                color: "text.secondary",
                 border: 1,
-                borderColor: isLight
-                  ? "rgba(26,26,26,0.08)"
-                  : "rgba(255,255,255,0.1)",
+                borderColor: isLight ? "rgba(26,26,26,0.08)" : "rgba(255,255,255,0.12)",
                 borderRadius: "12px",
+                transition: "transform 0.2s ease, background-color 0.2s ease",
+                "&:hover": {
+                  bgcolor: isLight ? "rgba(200,76,49,0.08)" : "rgba(255,255,255,0.06)",
+                  transform: "scale(1.05)",
+                },
+              }}
+            >
+              {mode === "dark" ? (
+                <LightModeRoundedIcon fontSize="small" />
+              ) : (
+                <DarkModeRoundedIcon fontSize="small" />
+              )}
+            </IconButton>
+            <IconButton
+              size="small"
+              color="inherit"
+              sx={{
+                border: 1,
+                borderColor: isLight ? "rgba(26,26,26,0.08)" : "rgba(255,255,255,0.1)",
+                borderRadius: "12px",
+                transition: "background-color 0.2s ease",
+                "&:hover": {
+                  bgcolor: isLight ? "rgba(200,76,49,0.06)" : "rgba(255,255,255,0.06)",
+                },
               }}
               aria-label="More"
             >
