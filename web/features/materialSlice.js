@@ -8,7 +8,9 @@ export const uploadMaterial = createAsyncThunk(
       const { data } = await api.post("/materials/upload", formData);
       return data;
     } catch (err) {
-      return rejectWithValue(err.message || "Upload failed");
+      const msg =
+        err.response?.data?.message || err.message || "Upload failed";
+      return rejectWithValue(msg);
     }
   },
 );

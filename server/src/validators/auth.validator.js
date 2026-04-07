@@ -60,9 +60,14 @@ const verifyOtpSchema = Joi.object({
   otp: Joi.string().length(6).pattern(/^\d+$/).required(),
 });
 
+const refreshTokenSchema = Joi.object({
+  refreshToken: Joi.string().trim().min(10).required(),
+});
+
 module.exports = {
   collegeCodeHeaderSchema,
   registerSchema,
   loginSchema,
   verifyOtpSchema,
+  refreshTokenSchema,
 };

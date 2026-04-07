@@ -53,12 +53,25 @@ export default function MyMaterialsPage() {
                 borderColor: "divider",
               }}
             >
-              <Typography fontWeight={800}>{m.subject}</Typography>
+              <Typography fontWeight={800}>{m.title || m.subject}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {m.subject}
+              </Typography>
               <Box className="flex flex-wrap gap-1 mt-1">
                 <Chip size="small" label={m.degree} />
                 <Chip size="small" label={m.department} />
                 <Chip size="small" label={m.year} />
                 <Chip size="small" label={m.semester} />
+                <Chip size="small" variant="outlined" label={m.type === "question_paper" ? "Question paper" : "Notes"} />
+                {m.ragStatus === "ready" ? (
+                  <Chip size="small" color="success" label={`RAG · ${m.chunkCount || 0} chunks`} />
+                ) : null}
+                {m.ragStatus === "failed" ? (
+                  <Chip size="small" color="error" label="RAG failed" title={m.ragError || ""} />
+                ) : null}
+                {m.ragStatus === "skipped" ? (
+                  <Chip size="small" variant="outlined" label="URL (no RAG)" />
+                ) : null}
               </Box>
               {href ? (
                 <MuiLink href={href} target="_blank" rel="noreferrer" sx={{ mt: 1, display: "inline-block" }}>

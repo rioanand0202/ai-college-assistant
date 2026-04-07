@@ -41,7 +41,6 @@ const requireAuth = async (req, res, next) => {
 
       const userId = String(payload.sub);
       const tokenCollege = String(payload.collegeCode || "").toUpperCase();
-      console.log({ userId, tokenCollege });
       if (
         !userId ||
         !tokenCollege ||

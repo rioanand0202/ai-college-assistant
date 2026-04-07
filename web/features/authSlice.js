@@ -1,10 +1,15 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { api } from "@/services/api";
 
-const persistAuth = (user, token) => {
+/** refreshToken: string = store, null = remove, undefined = leave unchanged */
+const persistAuth = (user, token, refreshToken) => {
   if (typeof window === "undefined") return;
   if (token) localStorage.setItem("token", token);
   else localStorage.removeItem("token");
+  if (refreshToken !== undefined) {
+    if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
+    else localStorage.removeItem("refreshToken");
+  }
   if (user) localStorage.setItem("user", JSON.stringify(user));
   else localStorage.removeItem("user");
 };
@@ -62,11 +67,12 @@ export const loginUser = createAsyncThunk(
         );
       }
       const token = data?.data?.accessToken;
+      const refreshToken = data?.data?.refreshToken;
       const user = data?.data?.user;
       if (!token || !user) {
         return rejectWithValue("Unexpected login response");
       }
-      persistAuth(user, token);
+      persistAuth(user, token, refreshToken);
       return { user, token };
     } catch (err) {
       const msg = err.response?.data?.message || err.message || "Login failed";
@@ -120,7 +126,7 @@ const authSlice = createSlice({
       state.token = null;
       state.status = "idle";
       state.error = null;
-      persistAuth(null, null);
+      persistAuth(null, null, null);
     },
     clearError(state) {
       state.error = null;
@@ -168,8 +174,8 @@ const authSlice = createSlice({
         state.error = action.payload || null;
         state.user = null;
         state.token = null;
-        persistAuth(null, null);
-      });
+      persistAuth(null, null, null);
+    });
   },
 });
 

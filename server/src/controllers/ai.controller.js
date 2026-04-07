@@ -1,6 +1,9 @@
 const AppError = require("../utils/appError");
 const { catchAsync } = require("../utils/catchAsync");
-const { asyncHookFun, commitActivityLog } = require("../context/requestContext");
+const {
+  asyncHookFun,
+  commitActivityLog,
+} = require("../context/requestContext");
 
 const generalChat = catchAsync(async (pick, res) => {
   const { req, body } = pick;
@@ -16,7 +19,7 @@ const generalChat = catchAsync(async (pick, res) => {
     throw new AppError("AI is not configured (OPENAI_API_KEY missing)", 503);
   }
 
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const model = process.env.OPENAI_MODEL || "gpt-5-nano";
 
   const r = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -34,13 +37,13 @@ const generalChat = catchAsync(async (pick, res) => {
         },
         { role: "user", content: message },
       ],
-      temperature: 0.5,
     }),
   });
-
+  console.log({ r });
   const json = await r.json().catch(() => ({}));
   if (!r.ok) {
-    const errMsg = json?.error?.message || r.statusText || "OpenAI request failed";
+    const errMsg =
+      json?.error?.message || r.statusText || "OpenAI request failed";
     throw new AppError(errMsg, 502);
   }
 

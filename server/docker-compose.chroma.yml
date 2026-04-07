@@ -1,0 +1,23 @@
+# Chroma must be running before PDF uploads can index (Node connects to this HTTP API).
+#
+# Start (from server/):
+#   docker compose -f docker-compose.chroma.yml up -d
+#
+# Check:
+#   curl http://127.0.0.1:8000/api/v2/version
+#
+# .env: CHROMA_HOST=127.0.0.1  CHROMA_PORT=8000  (defaults in code)
+services:
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      ANONYMIZED_TELEMETRY: "False"
+      # Browser / Next.js dev tools only; Node server does not need CORS for ingestion.
+      CHROMA_CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+
+volumes:
+  chroma_data:

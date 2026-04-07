@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose");
 const Users = require("../models/Users.model");
 const College = require("../models/College.model");
 const AppError = require("../utils/appError");
@@ -10,7 +11,11 @@ const {
 const {
   getGlobalConfiguration,
 } = require("../services/globalConfiguration.service");
-const { signAccessToken, signRefreshToken } = require("../utils/jwt.util");
+const {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+} = require("../utils/jwt.util");
 const {
   generateOtp,
   hashOtp,
@@ -352,6 +357,57 @@ const verifyOtp = catchAsync(async (pick, res) => {
   });
 });
 
+const refreshAccess = catchAsync(async (pick, res) => {
+  const { body } = pick;
+  const refreshToken = String(body?.refreshToken || "").trim();
+  if (!refreshToken) {
+    throw new AppError("refreshToken is required", 400);
+  }
+
+  let payload;
+  try {
+    payload = verifyRefreshToken(refreshToken);
+  } catch {
+    throw new AppError("Invalid or expired refresh token", 401);
+  }
+
+  if (payload.typ !== "refresh") {
+    throw new AppError("Invalid token type", 401);
+  }
+
+  const userId = String(payload.sub);
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    throw new AppError("Invalid token payload", 401);
+  }
+
+  const tokenCollege = String(payload.collegeCode || "").toUpperCase();
+  const user = await Users.findById(userId).select(
+    "name email role collegeCode status",
+  );
+  if (!user) {
+    throw new AppError("User not found", 401);
+  }
+
+  const dbCollege = String(user.collegeCode || "").toUpperCase();
+  if (dbCollege !== tokenCollege) {
+    throw new AppError("Token is out of date; sign in again", 403);
+  }
+
+  const accessToken = signAccessToken({
+    sub: user._id.toString(),
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    collegeCode: tokenCollege,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Token refreshed",
+    data: { accessToken },
+  });
+});
+
 const getCurrentUser = catchAsync(async (pick, res) => {
   const { req } = pick;
   const user = await Users.findById(req.user.id).select(
@@ -379,4 +435,4 @@ const getCurrentUser = catchAsync(async (pick, res) => {
   });
 });
 
-module.exports = { register, login, verifyOtp, getCurrentUser };
+module.exports = { register, login, verifyOtp, refreshAccess, getCurrentUser };

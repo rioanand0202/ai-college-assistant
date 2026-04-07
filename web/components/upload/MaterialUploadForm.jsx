@@ -43,6 +43,8 @@ export default function MaterialUploadForm() {
   const [year, setYear] = useState("");
   const [semester, setSemester] = useState("");
   const [subject, setSubject] = useState("");
+  const [title, setTitle] = useState("");
+  const [materialType, setMaterialType] = useState("notes");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
@@ -56,6 +58,8 @@ export default function MaterialUploadForm() {
       show("Material uploaded successfully", "success");
       dispatch(clearUploadState());
       setSubject("");
+      setTitle("");
+      setMaterialType("notes");
       setUrl("");
       setFile(null);
     }
@@ -72,6 +76,10 @@ export default function MaterialUploadForm() {
       return;
     }
     if (mode === "file") {
+      if (!title.trim()) {
+        show("Please enter a title for this PDF", "warning");
+        return;
+      }
       if (!file) {
         show("Please choose a PDF file", "warning");
         return;
@@ -93,7 +101,11 @@ export default function MaterialUploadForm() {
     fd.append("year", year);
     fd.append("semester", semester);
     fd.append("subject", subject.trim());
-    if (mode === "file") fd.append("file", file);
+    fd.append("type", materialType);
+    if (mode === "file") {
+      fd.append("title", title.trim());
+      fd.append("file", file);
+    }
     else fd.append("url", url.trim());
 
     dispatch(uploadMaterial(fd));
@@ -194,6 +206,32 @@ export default function MaterialUploadForm() {
           fullWidth
           disabled={disabled}
         />
+
+        {mode === "file" ? (
+          <TextField
+            label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            fullWidth
+            disabled={disabled}
+            placeholder="e.g. OS Unit 3 — Memory management"
+            helperText="Shown in your library and used for search"
+          />
+        ) : null}
+
+        <FormControl fullWidth disabled={disabled}>
+          <InputLabel id="mat-type-label">Material type</InputLabel>
+          <Select
+            labelId="mat-type-label"
+            label="Material type"
+            value={materialType}
+            onChange={(e) => setMaterialType(e.target.value)}
+          >
+            <MenuItem value="notes">Notes</MenuItem>
+            <MenuItem value="question_paper">Question paper</MenuItem>
+          </Select>
+        </FormControl>
 
         <Box>
           <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>

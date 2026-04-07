@@ -9,6 +9,7 @@ router.use(requireAuth);
 router.use("/activity-logs", require("./activityLog.routes"));
 router.use("/materials", require("./materials.routes"));
 router.use("/ai", require("./ai.routes"));
+router.use("/rag", require("./rag.routes"));
 router.use("/admin", require("./admin.routes"));
 
 router.get("/", (req, res) => {
