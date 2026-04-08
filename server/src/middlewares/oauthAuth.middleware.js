@@ -9,6 +9,33 @@ function bearerToken(req) {
 }
 
 /**
+ * Resolve Google OAuth user from JWT (WebSocket auth, etc.).
+ * @param {string | null | undefined} token
+ * @returns {Promise<object | null>}
+ */
+async function resolveOAuthUserFromToken(token) {
+  if (!token || typeof token !== "string") return null;
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+  try {
+    const payload = verifyAccessToken(trimmed);
+    if (payload.typ !== "access" || payload.authKind !== "oauth") return null;
+    const id = String(payload.sub || "");
+    if (!mongoose.Types.ObjectId.isValid(id)) return null;
+    const user = await OAuthUser.findById(id).lean();
+    if (!user) return null;
+    return {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      provider: user.provider,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * If a valid OAuth access JWT is present, sets req.oauthUser. Does not error when missing/invalid.
  */
 async function optionalOAuthAuth(req, _res, next) {
@@ -16,18 +43,8 @@ async function optionalOAuthAuth(req, _res, next) {
   const token = bearerToken(req);
   if (!token) return next();
   try {
-    const payload = verifyAccessToken(token);
-    if (payload.typ !== "access" || payload.authKind !== "oauth") return next();
-    const id = String(payload.sub || "");
-    if (!mongoose.Types.ObjectId.isValid(id)) return next();
-    const user = await OAuthUser.findById(id).lean();
-    if (!user) return next();
-    req.oauthUser = {
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name,
-      provider: user.provider,
-    };
+    const u = await resolveOAuthUserFromToken(token);
+    if (u) req.oauthUser = u;
   } catch {
     /* ignore */
   }
@@ -74,4 +91,9 @@ async function requireOAuthAuth(req, _res, next) {
   }
 }
 
-module.exports = { optionalOAuthAuth, requireOAuthAuth, bearerToken };
+module.exports = {
+  optionalOAuthAuth,
+  requireOAuthAuth,
+  bearerToken,
+  resolveOAuthUserFromToken,
+};

@@ -52,6 +52,13 @@ router.get("/google", (req, res, next) => {
       message: "Google OAuth is not configured on the server",
     });
   }
+  const popup =
+    req.query.popup === "1" || String(req.query.popup || "").toLowerCase() === "true";
+  if (popup) {
+    req.session.oauthPopupReturn = true;
+  } else {
+    delete req.session.oauthPopupReturn;
+  }
   passport.authenticate("google", {
     scope: ["profile", "email"],
     session: true,
@@ -79,9 +86,18 @@ router.get(
       email: user.email,
       name: user.name,
     });
-    res.redirect(
-      `${clientBase()}/auth/google/callback#token=${encodeURIComponent(token)}`,
-    );
+    const usePopupComplete = Boolean(req.session?.oauthPopupReturn);
+    if (usePopupComplete) {
+      delete req.session.oauthPopupReturn;
+    }
+    const path = usePopupComplete ? "/auth/google/popup-complete" : "/auth/google/callback";
+    const dest = `${clientBase()}${path}#token=${encodeURIComponent(token)}`;
+    req.session.save((err) => {
+      if (err) {
+        return res.redirect(`${clientBase()}/?oauth=error`);
+      }
+      res.redirect(dest);
+    });
   },
 );
 

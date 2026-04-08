@@ -1,10 +1,12 @@
 const { Server } = require("socket.io");
+const { attachPublicChatSocket } = require("./publicChat.socket");
+
 let io;
 
 const initSocketServer = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: process.env.CLIENT_URL || true,
       credentials: true,
     },
     transports: ["websocket", "polling"],
@@ -15,6 +17,7 @@ const initSocketServer = (server) => {
 
   io.on("connection", (socket) => {
     console.log(`User connected :${socket.id}`);
+    attachPublicChatSocket(socket);
 
     socket.on("disconnect", () => {
       console.log(`User disconnected :${socket.id}`);

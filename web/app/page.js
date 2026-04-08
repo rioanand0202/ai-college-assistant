@@ -18,7 +18,15 @@ import { useEffect, useState } from "react";
 import { useTheme } from "@mui/material/styles";
 import { useThemeMode } from "@/components/providers/ThemeModeContext";
 import PublicChat from "@/components/public/PublicChat";
-import { getPublicToken, getPublicUser } from "@/lib/publicAuth";
+import {
+  clearPublicSession,
+  getPublicToken,
+  getPublicUser,
+  setPublicSession,
+  userFromPublicToken,
+} from "@/lib/publicAuth";
+
+const OAUTH_POPUP_MESSAGE = "aca-public-oauth";
 
 function apiBase() {
   return (
@@ -166,6 +174,7 @@ export default function PublicHomePage() {
   const { mode, toggleMode } = useThemeMode();
   const [hasPublicAuth, setHasPublicAuth] = useState(false);
   const [name, setName] = useState(null);
+  const [publicAuthRevision, setPublicAuthRevision] = useState(0);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -174,8 +183,39 @@ export default function PublicHomePage() {
     });
   }, []);
 
-  const startGoogle = () => {
-    window.location.href = `${apiBase()}/auth/google`;
+  useEffect(() => {
+    const onMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== OAUTH_POPUP_MESSAGE || !event.data?.token) return;
+      const token = String(event.data.token).trim();
+      if (!token) return;
+      const user = userFromPublicToken(token);
+      setPublicSession(token, user);
+      setHasPublicAuth(true);
+      setName(user?.name || null);
+      setPublicAuthRevision((n) => n + 1);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  const startGooglePopup = () => {
+    const url = `${apiBase()}/auth/google?popup=1`;
+    const popup = window.open(
+      url,
+      "aca_google_oauth",
+      "width=520,height=680,scrollbars=yes,resizable=yes",
+    );
+    if (!popup) {
+      window.location.href = `${apiBase()}/auth/google`;
+    }
+  };
+
+  const handlePublicLogout = () => {
+    clearPublicSession();
+    setHasPublicAuth(false);
+    setName(null);
+    setPublicAuthRevision((n) => n + 1);
   };
 
   return (
@@ -316,13 +356,30 @@ export default function PublicHomePage() {
                 >
                   College sign-in
                 </Button>
+                <Button
+                  variant="text"
+                  size="medium"
+                  onClick={handlePublicLogout}
+                  sx={{
+                    borderRadius: "999px",
+                    px: 2,
+                    color: "text.secondary",
+                    fontWeight: 700,
+                    "&:hover": {
+                      color: "error.main",
+                      bgcolor: isLight ? "rgba(211,47,47,0.06)" : "rgba(244,67,54,0.12)",
+                    },
+                  }}
+                >
+                  Log out
+                </Button>
               </>
             ) : (
               <>
                 <Button
                   variant="outlined"
                   size="medium"
-                  onClick={startGoogle}
+                  onClick={startGooglePopup}
                   sx={{
                     borderRadius: "999px",
                     px: 2.5,
@@ -508,7 +565,7 @@ export default function PublicHomePage() {
             pb: { xs: 2, md: 2.5 },
           }}
         >
-          <PublicChat />
+          <PublicChat publicAuthRevision={publicAuthRevision} />
         </Box>
       </Box>
     </Box>

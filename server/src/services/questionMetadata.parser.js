@@ -12,6 +12,8 @@ const SUBJECT_ALIAS_GROUPS = [
   ["cn", "computer networks", "computer network"],
   ["dsa", "data structures", "data structure", "algorithms"],
   ["oop", "object oriented programming", "object-oriented programming"],
+  ["ai", "artificial intelligence"],
+  ["ml", "machine learning"],
   ["java"],
   ["python"],
   ["c", "programming in c"],
@@ -111,7 +113,78 @@ function isExamStyleQuestion(text) {
   return EXAM_STYLE.test(String(text || ""));
 }
 
+function escapeRe(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * For Chroma chunk metadata: aliases that may appear in student queries (abbreviations, etc.).
+ * @param {string} subjectRaw Staff-entered subject (any casing).
+ * @returns {string[]} Lowercase unique terms, always includes canonical subject string.
+ */
+function inferSubjectAliasesForUpload(subjectRaw) {
+  const canonical = String(subjectRaw || "").trim().toLowerCase();
+  if (!canonical) return [];
+  const out = new Set([canonical]);
+  for (const group of SUBJECT_ALIAS_GROUPS) {
+    const hit = group.some((term) => {
+      const t = String(term).trim().toLowerCase();
+      return canonical === t || canonical.includes(t) || t.includes(canonical);
+    });
+    if (hit) {
+      group.forEach((g) => {
+        const v = String(g).trim().toLowerCase();
+        if (v) out.add(v);
+      });
+    }
+  }
+  return [...out];
+}
+
+/**
+ * Soft signals for ranking — not used as strict Chroma filters.
+ * @returns {{
+ *   filtersFromQuestion: ReturnType<typeof extractFiltersFromQuestion>,
+ *   subjectHints: string[],
+ *   intentExam: boolean,
+ *   intentImportantQuestions: boolean,
+ * }}
+ */
+function parseQueryForRetrieval(raw) {
+  const q = String(raw || "");
+  const ql = q.toLowerCase();
+  const filtersFromQuestion = extractFiltersFromQuestion(q);
+
+  const subjectHints = new Set(filtersFromQuestion.subjectVariants.map((s) => String(s).trim().toLowerCase()).filter(Boolean));
+
+  for (const group of SUBJECT_ALIAS_GROUPS) {
+    const matched = group.some((term) => {
+      const re = new RegExp(`\\b${escapeRe(term)}\\b`, "i");
+      return re.test(ql);
+    });
+    if (matched) {
+      group.forEach((t) => subjectHints.add(String(t).trim().toLowerCase()));
+    }
+  }
+
+  const intentImportantQuestions =
+    /important\s+questions|model\s+questions|exam\s+questions|expected\s+questions|likely\s+questions/i.test(
+      q,
+    );
+  const intentExam = isExamStyleQuestion(q) || intentImportantQuestions;
+
+  return {
+    filtersFromQuestion,
+    subjectHints: [...subjectHints],
+    intentExam,
+    intentImportantQuestions,
+  };
+}
+
 module.exports = {
+  SUBJECT_ALIAS_GROUPS,
   extractFiltersFromQuestion,
+  inferSubjectAliasesForUpload,
   isExamStyleQuestion,
+  parseQueryForRetrieval,
 };

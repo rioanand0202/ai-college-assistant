@@ -7,7 +7,8 @@ const { RecursiveCharacterTextSplitter } = require("@langchain/textsplitters");
 
 const { ChromaClient, ChromaConnectionError } = require("chromadb");
 const elasticsearch = require("./elasticsearch.service");
-const { isExamStyleQuestion } = require("./questionMetadata.parser");
+const { isExamStyleQuestion, inferSubjectAliasesForUpload } = require("./questionMetadata.parser");
+const { retrieveSemanticFirstChunks } = require("./ragRetrieval.service");
 
 const COLLECTION = process.env.CHROMA_COLLECTION || "college-materials";
 
@@ -210,6 +211,7 @@ async function ingestMaterialPdf({
     materialId: String(materialId),
     title: String(title || ""),
     subject: String(subject).trim().toLowerCase(),
+    subjectAliases: inferSubjectAliasesForUpload(subject),
     department: String(department).trim().toLowerCase(),
     semester: String(semester).trim().toLowerCase(),
     degree: String(degree).trim().toLowerCase(),
@@ -291,18 +293,15 @@ async function queryRag({
         ? [String(subject).trim().toLowerCase()]
         : [];
 
-  const where = buildChromaWhere({
-    subject,
-    subjectVariants: variants,
+  const examQ = isExamStyleQuestion(q);
+
+  const { docs, trace: retrievalTrace } = await retrieveSemanticFirstChunks(store, q, {
+    collegeCode,
     department,
     semester,
-    degree,
-    year,
-    collegeCode,
+    subject,
+    subjectVariants: variants,
   });
-
-  const topK = isExamStyleQuestion(q) ? 8 : 5;
-  let docs = await store.similaritySearch(q, topK, where);
 
   if (docs.length === 0 && elasticsearch.isEnabled()) {
     try {
@@ -315,7 +314,7 @@ async function queryRag({
         degree,
         year,
         collegeCode,
-        size: topK,
+        size: examQ ? 10 : 8,
       });
       docs = hits.map((h) => ({
         pageContent: h.text || "",
@@ -329,7 +328,7 @@ async function queryRag({
     }
   }
 
-  const examMode = isExamStyleQuestion(q);
+  const examMode = examQ;
   const context = docs
     .map((d, i) => `[${i + 1}] ${d.pageContent}`)
     .join("\n\n---\n\n");
@@ -364,7 +363,7 @@ async function queryRag({
 
   const answer = json?.choices?.[0]?.message?.content?.trim() || "";
 
-  return {
+  const payload = {
     answer,
     sourcesUsed: docs.length,
     examMode,
@@ -374,6 +373,10 @@ async function queryRag({
       title: d.metadata?.title,
     })),
   };
+  if (String(process.env.RAG_DEBUG_RETRIEVAL || "").toLowerCase() === "true" && retrievalTrace) {
+    payload.retrievalTrace = retrievalTrace;
+  }
+  return payload;
 }
 
 /**

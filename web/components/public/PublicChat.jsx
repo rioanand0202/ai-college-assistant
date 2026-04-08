@@ -24,13 +24,40 @@ import {
   loadGuestMessages,
   saveGuestMessages,
 } from "@/lib/publicAuth";
+import { createPublicAssistantSocket } from "@/lib/publicSocket";
 
-const SUGGESTIONS = [
+const SUGGEST_SID_KEY = "aca_public_suggest_sid_v1";
+
+const FALLBACK_SUGGESTIONS = [
   "Important questions in OS 2nd year 1st sem",
   "Explain deadlock in operating systems",
   "Important questions in DBMS",
   "What is normalization in databases?",
 ];
+
+function getOrCreateSuggestionSessionId() {
+  if (typeof window === "undefined") return "anon";
+  try {
+    let id = sessionStorage.getItem(SUGGEST_SID_KEY);
+    if (!id) {
+      id =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      sessionStorage.setItem(SUGGEST_SID_KEY, id);
+    }
+    return id;
+  } catch {
+    return "anon";
+  }
+}
+
+function newClientMsgId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `m-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 function AssistantMessage({ content, index, isLight, copiedIndex, setCopiedIndex }) {
   const copied = copiedIndex === index;
@@ -208,29 +235,69 @@ function UserMessage({ content }) {
   );
 }
 
-export default function PublicChat() {
+export default function PublicChat({ publicAuthRevision = 0 }) {
   const theme = useTheme();
   const isLight = theme.palette.mode === "light";
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState(null);
+  const [suggestions, setSuggestions] = useState(FALLBACK_SUGGESTIONS);
+  const [suggestLoading, setSuggestLoading] = useState(true);
   const bottomRef = useRef(null);
-  const loggedIn = Boolean(getPublicToken());
+  const socketRef = useRef(null);
+  const [oauthLoggedIn, setOauthLoggedIn] = useState(false);
 
   useEffect(() => {
-    if (loggedIn) {
+    setOauthLoggedIn(Boolean(getPublicToken()));
+  }, [publicAuthRevision]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSuggestLoading(true);
+    const sid = getOrCreateSuggestionSessionId();
+    publicApi
+      .get("/public/suggestions", { params: { session: sid, limit: 8 } })
+      .then(({ data }) => {
+        const list = data?.data?.suggestions;
+        if (!cancelled && Array.isArray(list) && list.length > 0) {
+          setSuggestions(list);
+        }
+      })
+      .catch(() => {
+        /* keep FALLBACK_SUGGESTIONS */
+      })
+      .finally(() => {
+        if (!cancelled) setSuggestLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const token = getPublicToken();
+    const s = createPublicAssistantSocket({ token });
+    socketRef.current = s;
+    return () => {
+      s.disconnect();
+      socketRef.current = null;
+    };
+  }, [publicAuthRevision]);
+
+  useEffect(() => {
+    if (oauthLoggedIn) {
       setMessages([]);
       return;
     }
     setMessages(loadGuestMessages());
-  }, [loggedIn]);
+  }, [oauthLoggedIn]);
 
   useEffect(() => {
-    if (!loggedIn) {
+    if (!oauthLoggedIn) {
       saveGuestMessages(messages);
     }
-  }, [messages, loggedIn]);
+  }, [messages, oauthLoggedIn]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -243,10 +310,38 @@ export default function PublicChat() {
       setMessages((m) => [...m, { role: "user", content: q }]);
       setInput("");
       setLoading(true);
+      const clientMsgId = newClientMsgId();
       try {
-        const { data } = await publicApi.post("/public/ask", { question: q });
-        const answer = data?.data?.answer || "No response.";
-        setMessages((m) => [...m, { role: "assistant", content: answer }]);
+        const socket = socketRef.current;
+        let answerText;
+
+        if (socket?.connected) {
+          const payload = await new Promise((resolve) => {
+            const ms = 125000;
+            const t = window.setTimeout(
+              () => resolve({ success: false, message: "Request timed out." }),
+              ms,
+            );
+            socket.emit("public:ask", { question: q, clientMsgId }, (ack) => {
+              window.clearTimeout(t);
+              resolve(ack);
+            });
+          });
+          if (payload?.success && payload?.data) {
+            answerText = payload.data.answer || "No response.";
+          } else {
+            const { data } = await publicApi.post("/public/ask", { question: q });
+            answerText =
+              data?.data?.answer ||
+              payload?.message ||
+              "Something went wrong. Try again.";
+          }
+        } else {
+          const { data } = await publicApi.post("/public/ask", { question: q });
+          answerText = data?.data?.answer || "No response.";
+        }
+
+        setMessages((m) => [...m, { role: "assistant", content: answerText }]);
       } catch (e) {
         const msg =
           e.response?.data?.message || e.message || "Something went wrong. Try again.";
@@ -365,9 +460,9 @@ export default function PublicChat() {
                 year 1st sem&quot;.
               </Typography>
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.25, justifyContent: "center" }}>
-                {SUGGESTIONS.map((s) => (
+                {(suggestLoading ? FALLBACK_SUGGESTIONS : suggestions).map((s, si) => (
                   <Chip
-                    key={s}
+                    key={`${s}-${si}`}
                     label={s}
                     onClick={() => send(s)}
                     variant="outlined"
