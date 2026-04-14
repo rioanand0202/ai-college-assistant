@@ -41,9 +41,6 @@ export default function AdminShell({ children }) {
           <Button component={Link} href="/admin/events" color="inherit" size="small">
             Events
           </Button>
-          <Button component={Link} href="/staff/dashboard" color="inherit" size="small">
-            Staff dashboard
-          </Button>
           <Box className="flex items-center gap-2">
             <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main" }}>
               {(user?.name || "A").slice(0, 1).toUpperCase()}
