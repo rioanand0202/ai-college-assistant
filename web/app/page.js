@@ -10,7 +10,6 @@ import {
 } from "@mui/material";
 import Image from "next/image";
 import Link from "next/link";
-import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
@@ -36,6 +35,11 @@ function apiBase() {
 
 const HISTORY_TOOLTIP_TEXT =
   "Login to save your chat history across devices. This tab keeps a temporary transcript until you close it.";
+
+function publicEventsHref() {
+  const cc = (process.env.NEXT_PUBLIC_COLLEGE_CODE || "").trim();
+  return cc ? `/events?collegeCode=${encodeURIComponent(cc)}` : "/events";
+}
 
 function PublicDecorBackground({ isLight }) {
   const sparkles = [
@@ -199,16 +203,9 @@ export default function PublicHomePage() {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  const startGooglePopup = () => {
-    const url = `${apiBase()}/auth/google?popup=1`;
-    const popup = window.open(
-      url,
-      "aca_google_oauth",
-      "width=520,height=680,scrollbars=yes,resizable=yes",
-    );
-    if (!popup) {
-      window.location.href = `${apiBase()}/auth/google`;
-    }
+  /** Full same-tab OAuth: this tab → API → Google → callback on our app → back to `/` with token in hash. */
+  const startGoogleSignIn = () => {
+    window.location.assign(`${apiBase()}/auth/google`);
   };
 
   const handlePublicLogout = () => {
@@ -319,6 +316,22 @@ export default function PublicHomePage() {
               </Typography>
             </Box>
 
+            <Button
+              component={Link}
+              href={publicEventsHref()}
+              variant="outlined"
+              size="medium"
+              sx={{
+                borderRadius: "999px",
+                px: 2,
+                fontWeight: 700,
+                borderColor: "primary.main",
+                color: "primary.main",
+              }}
+            >
+              Events & notices
+            </Button>
+
             {hasPublicAuth ? (
               <>
                 <Typography
@@ -379,7 +392,7 @@ export default function PublicHomePage() {
                 <Button
                   variant="outlined"
                   size="medium"
-                  onClick={startGooglePopup}
+                  onClick={startGoogleSignIn}
                   sx={{
                     borderRadius: "999px",
                     px: 2.5,
@@ -426,22 +439,6 @@ export default function PublicHomePage() {
               ) : (
                 <DarkModeRoundedIcon fontSize="small" />
               )}
-            </IconButton>
-            <IconButton
-              size="small"
-              color="inherit"
-              sx={{
-                border: 1,
-                borderColor: isLight ? "rgba(26,26,26,0.08)" : "rgba(255,255,255,0.1)",
-                borderRadius: "12px",
-                transition: "background-color 0.2s ease",
-                "&:hover": {
-                  bgcolor: isLight ? "rgba(200,76,49,0.06)" : "rgba(255,255,255,0.06)",
-                },
-              }}
-              aria-label="More"
-            >
-              <MoreHorizIcon />
             </IconButton>
           </Toolbar>
         </Box>

@@ -23,7 +23,7 @@ export default function GoogleOAuthCallbackPage() {
     const user = userFromPublicToken(token);
     setPublicSession(token, user);
     window.history.replaceState(null, "", window.location.pathname);
-    queueMicrotask(() => router.replace("/dashboard"));
+    queueMicrotask(() => router.replace("/"));
   }, [router]);
 
   if (error) {

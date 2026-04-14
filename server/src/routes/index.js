@@ -5,9 +5,15 @@ const { optionalOAuthAuth } = require("../middlewares/oauthAuth.middleware");
 const { getMeta } = require("../controllers/meta.controller");
 const { publicAsk } = require("../controllers/public.controller");
 const { listPublicSuggestions } = require("../controllers/publicSuggestions.controller");
+const {
+  listPublicEventAnnouncements,
+} = require("../controllers/eventAnnouncement.controller");
 
 router.use("/auth", require("./auth.routes"));
 router.get("/meta", getMeta);
+
+/** Public events — deactivates expired then lists active for collegeCode */
+router.get("/public/events", listPublicEventAnnouncements);
 
 /** Public RAG assistant — no college JWT; optional OAuth Bearer saves chat history */
 router.get("/public/suggestions", listPublicSuggestions);

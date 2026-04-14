@@ -173,6 +173,17 @@ export default function LoginPage() {
         >
           {status === "loading" ? "Signing in…" : "Sign in"}
         </Button>
+
+        <Button
+          component={NextLink}
+          href="/admin/events"
+          variant="outlined"
+          size="medium"
+          fullWidth
+          sx={{ mt: 1.5, py: 1, fontWeight: 700 }}
+        >
+          Add events & announcements
+        </Button>
       </Box>
 
       <Typography variant="body2" color="text.secondary" sx={{ mt: 2.5 }}>

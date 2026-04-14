@@ -18,6 +18,11 @@ import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
 import Link from "next/link";
+
+function publicEventsHref() {
+  const cc = (process.env.NEXT_PUBLIC_COLLEGE_CODE || "").trim();
+  return cc ? `/events?collegeCode=${encodeURIComponent(cc)}` : "/events";
+}
 import { publicApi } from "@/services/publicApi";
 import {
   getPublicToken,
@@ -402,6 +407,32 @@ export default function PublicChat({ publicAuthRevision = 0 }) {
           position: "relative",
         }}
       >
+        <Box
+          sx={{
+            flexShrink: 0,
+            display: "flex",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            px: { xs: 2, sm: 2.5 },
+            py: 1,
+            borderBottom: 1,
+            borderColor: isLight ? "rgba(26,26,26,0.06)" : "rgba(255,255,255,0.08)",
+            position: "relative",
+            zIndex: 2,
+            bgcolor: isLight ? "rgba(255,255,255,0.35)" : "rgba(32,32,32,0.4)",
+          }}
+        >
+          <Button
+            component={Link}
+            href={publicEventsHref()}
+            size="small"
+            variant="outlined"
+            sx={{ fontWeight: 700, borderRadius: "999px" }}
+          >
+            Events & announcements
+          </Button>
+        </Box>
+
         {/* Login page book — bottom-left, overlapping, subtle float + glow */}
         <Box
           aria-hidden

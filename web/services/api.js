@@ -35,7 +35,8 @@ function isPublicAuthPath(url) {
     p.endsWith("/auth/login") ||
     p.endsWith("/auth/register") ||
     p.endsWith("/auth/verify-otp") ||
-    p.endsWith("/auth/refresh")
+    p.endsWith("/auth/refresh") ||
+    p.endsWith("/public/events")
   );
 }
 

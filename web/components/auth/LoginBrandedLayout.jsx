@@ -1,7 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { Box, Chip, Paper, Typography, useMediaQuery, useTheme } from "@mui/material";
+import Link from "next/link";
+import {
+  Box,
+  Chip,
+  Paper,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import LampThemeSwitcher from "@/components/theme/LampThemeSwitcher";
@@ -132,38 +141,63 @@ export default function LoginBrandedLayout({ children }) {
               justifyContent: "center",
             }}
           >
-            <Paper
-              elevation={3}
-              sx={{
-                position: "absolute",
-                left: { xs: "2%", sm: "8%" },
-                top: { xs: "12%", sm: "18%" },
-                zIndex: 1,
-                p: 1.25,
-                pr: 1.5,
-                borderRadius: 2,
-                maxWidth: smDown ? 150 : 168,
-                bgcolor: "background.paper",
-                display: { xs: "none", sm: "flex" },
-                flexDirection: "column",
-                gap: 0.5,
-                alignItems: "flex-start",
-              }}
+            <Tooltip
+              title="Open the public AI search — try the assistant without college login"
+              placement="top"
+              arrow
             >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <PictureAsPdfIcon sx={{ color: "error.main", fontSize: 28 }} />
-                <Typography variant="caption" fontWeight={700} noWrap>
-                  Nural-Network.pdf
-                </Typography>
-              </Box>
-              <Chip
-                label="Processing..."
-                size="small"
-                color="warning"
-                variant="outlined"
-                sx={{ height: 22, fontSize: "0.65rem" }}
-              />
-            </Paper>
+              <Paper
+                component={Link}
+                href="/"
+                prefetch
+                elevation={3}
+                sx={{
+                  position: "absolute",
+                  left: { xs: "2%", sm: "8%" },
+                  top: { xs: "12%", sm: "18%" },
+                  zIndex: 1,
+                  p: 1.25,
+                  pr: 1.5,
+                  borderRadius: 2,
+                  maxWidth: smDown ? 150 : 168,
+                  bgcolor: "background.paper",
+                  display: { xs: "none", sm: "flex" },
+                  flexDirection: "column",
+                  gap: 0.5,
+                  alignItems: "flex-start",
+                  textDecoration: "none",
+                  color: "inherit",
+                  cursor: "pointer",
+                  transition:
+                    "transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease",
+                  "&:hover": {
+                    transform: "translateY(-2px)",
+                    boxShadow: 8,
+                    bgcolor: isLight ? "rgba(255,255,255,0.98)" : "rgba(48,48,48,0.98)",
+                  },
+                  "&:focus-visible": {
+                    outline: "2px solid",
+                    outlineColor: "primary.main",
+                    outlineOffset: 2,
+                  },
+                }}
+                aria-label="Open public AI search assistant"
+              >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <PictureAsPdfIcon sx={{ color: "error.main", fontSize: 28 }} />
+                  <Typography variant="caption" fontWeight={700} noWrap>
+                    Neural-Network.pdf
+                  </Typography>
+                </Box>
+                <Chip
+                  label="Try public AI →"
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  sx={{ height: 22, fontSize: "0.65rem" }}
+                />
+              </Paper>
+            </Tooltip>
 
             <Paper
               elevation={3}

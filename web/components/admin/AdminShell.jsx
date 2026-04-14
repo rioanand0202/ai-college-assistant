@@ -33,8 +33,14 @@ export default function AdminShell({ children }) {
       >
         <Toolbar className="gap-3 flex-wrap">
           <Typography variant="h6" fontWeight={800} sx={{ flexGrow: 1 }}>
-            Admin — Staff requests
+            Admin
           </Typography>
+          <Button component={Link} href="/admin/staff-requests" color="inherit" size="small">
+            Staff requests
+          </Button>
+          <Button component={Link} href="/admin/events" color="inherit" size="small">
+            Events
+          </Button>
           <Button component={Link} href="/staff/dashboard" color="inherit" size="small">
             Staff dashboard
           </Button>
